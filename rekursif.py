@@ -27,43 +27,58 @@ def total_distance(route, locations):
 def calculate_travel_time(distance_km, speed_kmh):
     return distance_km / speed_kmh
 
-# Algoritma Brute Force Iteratif
-def brute_force_tsp_iterative(locations, start_location):
-    iteration_count = 0
-    location_names = list(locations.keys())
-    location_names.remove(start_location)
-    permutations = list(itertools.permutations(location_names))
+# Global counter untuk rekursi
+brute_force_counter = 0
+greedy_counter = 0
+
+# Algoritma Brute Force Rekursif
+def brute_force_tsp_recursive(current_location, remaining_locations, locations, current_route, current_distance):
+    global brute_force_counter
+    brute_force_counter += 1
+
+    if not remaining_locations:  # Jika tidak ada lokasi tersisa
+        current_route.append(start_location)
+        current_distance += haversine_distance(locations[current_location], locations[start_location])
+        return current_route, current_distance
 
     min_route = None
     min_distance = float('inf')
 
-    for perm in permutations:
-        iteration_count += 1
-        route = [start_location] + list(perm) + [start_location]
-        distance = total_distance(route, locations)
+    for next_location in remaining_locations:
+        next_distance = haversine_distance(locations[current_location], locations[next_location])
+        route, distance = brute_force_tsp_recursive(
+            next_location,
+            [loc for loc in remaining_locations if loc != next_location],
+            locations,
+            current_route + [next_location],
+            current_distance + next_distance
+        )
         if distance < min_distance:
             min_distance = distance
             min_route = route
 
-    return min_route, min_distance, iteration_count
+    return min_route, min_distance
 
-# Algoritma Greedy Iteratif
-def greedy_tsp_iterative(locations, start_location):
-    iteration_count = 0
-    location_names = list(locations.keys())
-    location_names.remove(start_location)
+# Algoritma Greedy Rekursif
+def greedy_tsp_recursive(current_location, remaining_locations, locations, current_route, current_distance):
+    global greedy_counter
+    greedy_counter += 1
 
-    route = [start_location]
+    if not remaining_locations:  # Jika tidak ada lokasi tersisa
+        current_route.append(start_location)
+        current_distance += haversine_distance(locations[current_location], locations[start_location])
+        return current_route, current_distance
 
-    while location_names:
-        iteration_count += 1
-        last_location = route[-1]
-        next_location = min(location_names, key=lambda x: haversine_distance(locations[last_location], locations[x]))
-        route.append(next_location)
-        location_names.remove(next_location)
+    next_location = min(remaining_locations, key=lambda x: haversine_distance(locations[current_location], locations[x]))
+    next_distance = haversine_distance(locations[current_location], locations[next_location])
 
-    route.append(start_location)  # Kembali ke titik awal
-    return route, total_distance(route, locations), iteration_count
+    return greedy_tsp_recursive(
+        next_location,
+        [loc for loc in remaining_locations if loc != next_location],
+        locations,
+        current_route + [next_location],
+        current_distance + next_distance
+    )
 
 def generate_random_locations(num_locations):
     locations = {}
@@ -75,12 +90,19 @@ def generate_random_locations(num_locations):
     return locations
 
 def run_tsp(locations, start_location, average_speed_kmh):
+    global brute_force_counter, greedy_counter
+
+    brute_force_counter = 0
+    greedy_counter = 0
+
     print(f"\nRunning TSP for {len(locations)} locations starting from {start_location}\n")
 
     # Perbandingan eksekusi Brute Force (hanya untuk kasus kecil)
     if len(locations) <= 10:
         start_time = time.perf_counter()
-        brute_force_result, brute_force_distance, brute_force_iterations = brute_force_tsp_iterative(locations, start_location)
+        brute_force_result, brute_force_distance = brute_force_tsp_recursive(
+            start_location, [loc for loc in locations if loc != start_location], locations, [start_location], 0
+        )
         brute_force_time = time.perf_counter() - start_time
 
         brute_force_travel_time = calculate_travel_time(brute_force_distance, average_speed_kmh)
@@ -89,14 +111,16 @@ def run_tsp(locations, start_location, average_speed_kmh):
         print("Route: ", brute_force_result)
         print("Distance: ", brute_force_distance, "km")
         print("Estimated Travel Time: ", brute_force_travel_time, "hours")
-        print("Iterations: ", brute_force_iterations)
+        print("Rekursi Count: ", brute_force_counter)
         print("Time: {:.10f} seconds".format(brute_force_time))
     else:
         print("Brute Force tidak bisa dijalankan karena waktu yang sangat lama.")
 
     # Perbandingan eksekusi Greedy
     start_time = time.perf_counter()
-    greedy_result, greedy_distance, greedy_iterations = greedy_tsp_iterative(locations, start_location)
+    greedy_result, greedy_distance = greedy_tsp_recursive(
+        start_location, [loc for loc in locations if loc != start_location], locations, [start_location], 0
+    )
     greedy_time = time.perf_counter() - start_time
 
     greedy_travel_time = calculate_travel_time(greedy_distance, average_speed_kmh)
@@ -105,7 +129,7 @@ def run_tsp(locations, start_location, average_speed_kmh):
     print("Route: ", greedy_result)
     print("Distance: ", greedy_distance, "km")
     print("Estimated Travel Time: ", greedy_travel_time, "hours")
-    print("Iterations: ", greedy_iterations)
+    print("Rekursi Count: ", greedy_counter)
     print("Time: {:.10f} seconds".format(greedy_time))
 
 if __name__ == "__main__":
